@@ -783,3 +783,68 @@ fn tally_structured(program: &ir::Program, s: &structure::Structured, t: &mut Ta
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
+
+/// The warm-up (`--cache`, after upstream VIctory c47b529): every distinct
+/// container found goes through the shader cache `run` reads, by the same
+/// code a run uses, so a run finds it translated (or refused) at once.
+pub fn warm(paths: Vec<PathBuf>, jobs: Option<usize>) -> Result<()> {
+    let paths = crate::default_paths(paths)?;
+    let cfg = victory_core::Config::load()?;
+    victory_hle::modules::d3d12x::use_shader_cache(cfg.cache_subdir("shaders")?);
+    let threads =
+        jobs.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    let started = std::time::Instant::now();
+    let seen = Mutex::new(HashSet::new());
+    // Containers translated (or found) and refused.
+    let counts = [const { AtomicUsize::new(0) }; 2];
+    for root in &paths {
+        for entry in walkdir::WalkDir::new(root)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            if !entry.file_type().is_file() || entry.metadata().map_or(0, |m| m.len()) > MAX_FILE {
+                continue;
+            }
+            let Ok(data) = std::fs::read(entry.path()) else {
+                continue;
+            };
+            let jobs = sources(&data);
+            if jobs.is_empty() {
+                continue;
+            }
+            let next = AtomicUsize::new(0);
+            std::thread::scope(|s| {
+                for _ in 0..threads.min(jobs.len()) {
+                    s.spawn(|| {
+                        while let Some(job) = jobs.get(next.fetch_add(1, Ordering::Relaxed)) {
+                            let Some(bytes) = job.bytes() else { continue };
+                            // As the title passes it: the container's own size
+                            // (a raw source runs on to the end of the file).
+                            let size = bytes.get(0x18..0x1c).map_or(0, |b| {
+                                u32::from_le_bytes(b.try_into().expect("4 bytes")) as usize
+                            });
+                            let container = &bytes[..size.min(bytes.len())];
+                            if !lock(&seen).insert(blake3::hash(container)) {
+                                continue;
+                            }
+                            let Some(ok) = victory_hle::modules::d3d12x::warm_shader(container) else {
+                                continue;
+                            };
+                            counts[usize::from(!ok)].fetch_add(1, Ordering::Relaxed);
+                        }
+                    });
+                }
+            });
+            let (hits, misses) = victory_hle::modules::d3d12x::shader_cache_counts();
+            eprintln!(
+                "{}: {} containers, {:.0} s; {} translate, {} refused; {hits} were in the cache, {misses} translated now",
+                entry.path().display(),
+                lock(&seen).len(),
+                started.elapsed().as_secs_f64(),
+                counts[0].load(Ordering::Relaxed),
+                counts[1].load(Ordering::Relaxed),
+            );
+        }
+    }
+    Ok(())
+}

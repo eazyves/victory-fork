@@ -1061,6 +1061,11 @@ pub fn set_host_max_wave(lanes: u32) {
     HOST_MAX_WAVE.store(lanes, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// What [`set_host_max_wave`] set (0: not known).
+pub fn host_max_wave_set() -> u32 {
+    HOST_MAX_WAVE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 thread_local! {
     /// See [`take_needs`].
     static NEEDS: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };

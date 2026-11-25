@@ -84,6 +84,11 @@ enum Command {
         /// Worker threads (default: every logical core).
         #[arg(long)]
         jobs: Option<usize>,
+        /// Only translate into the shader cache `run` reads (the warm-up):
+        /// every container found, once, through the same code a run uses, so
+        /// a run does not translate them while it plays.
+        #[arg(long)]
+        cache: bool,
     },
     /// Prepare, map and bind a title executable; with --execute, run it.
     Run {
@@ -152,7 +157,11 @@ fn main() -> Result<()> {
             pipelines,
             list,
             jobs,
+            cache,
         } => {
+            if cache {
+                return translate::warm(paths, jobs);
+            }
             // `VICTORY_VIEW_LIMIT=<null slot>`: translate as on a host whose view heap is capped
             if let Some(n) = std::env::var("VICTORY_VIEW_LIMIT").ok().and_then(|v| v.parse().ok()) {
                 victory_shader::emit::set_view_heap_limit(n);

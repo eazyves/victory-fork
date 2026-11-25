@@ -49,6 +49,27 @@ pub fn use_shader_cache(dir: std::path::PathBuf) {
     let _ = dir;
 }
 
+/// The warm-up: translates `container` into the shader cache set with
+/// [`use_shader_cache`], as a run would (see `victory_gpu::shader_cache::warm`).
+/// Whether it translates; `None` without a host GPU build.
+pub fn warm_shader(container: &[u8]) -> Option<bool> {
+    #[cfg(windows)]
+    return Some(victory_gpu::shader_cache::warm(container));
+    #[cfg(not(windows))]
+    {
+        let _ = container;
+        None
+    }
+}
+
+/// Shaders served from the cache and translated so far.
+pub fn shader_cache_counts() -> (u64, u64) {
+    #[cfg(windows)]
+    return victory_gpu::shader_cache::cache_counts();
+    #[cfg(not(windows))]
+    (0, 0)
+}
+
 pub(crate) fn module() -> HleModule {
     HleModule {
         name: "d3d12x",
