@@ -1962,7 +1962,6 @@ impl Shadow {
                     *h = merged;
                 }
                 if differs != 0 {
-                    crate::watch::writing(start + at, n);
                     crate::host::write_mapped((start + at) as *mut u8, title.as_ptr(), n);
                     written += n;
                 }
@@ -2051,7 +2050,6 @@ impl Shadow {
         if !merge_piece(now, held, title) {
             return 0;
         }
-        crate::watch::writing(start + at, n);
         crate::host::write_mapped((start + at) as *mut u8, title.as_ptr(), n);
         n
     }
@@ -2579,7 +2577,6 @@ impl Shadow {
                 *o = merged;
             }
             if differs != 0 {
-                crate::watch::writing(start + at, n);
                 crate::host::write_mapped((start + at) as *mut u8, title.as_ptr(), n);
                 written = n;
             }
@@ -2654,7 +2651,6 @@ impl Shadow {
         if !mapped || !changed {
             return 0;
         }
-        crate::watch::writing(start + at, n);
         crate::host::write_mapped((start + at) as *mut u8, title.as_ptr(), n);
         n
     }
