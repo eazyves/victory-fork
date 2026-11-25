@@ -318,6 +318,9 @@ pub(crate) struct HostPipeline {
     pub(crate) rects: bool,
     /// Its shaders, for reports of slow submissions.
     pub(crate) name: String,
+    /// The key its draws and dispatches are recorded with, for the
+    /// device-removed report (`crate::host::pipeline_key`).
+    pub(crate) key: u64,
     /// Its depth, stencil, cull and blend state in short, for the frame
     /// listing (empty for compute).
     #[cfg_attr(not(feature = "diagnostics"), allow(dead_code))]
@@ -550,6 +553,7 @@ impl HostPipeline {
                 root,
                 stages: bound,
                 name: format!("{shaders:?}"),
+                key: crate::host::pipeline_key(&format!("{shaders:?}")),
                 slots: 0,
                 inputs: Vec::new(),
                 rects: false,
@@ -603,6 +607,7 @@ impl HostPipeline {
                 root,
                 stages: bound,
                 name: format!("{shaders:?}"),
+                key: crate::host::pipeline_key(&format!("{shaders:?}")),
                 slots: 0,
                 inputs: Vec::new(),
                 rects: false,
@@ -719,6 +724,7 @@ impl HostPipeline {
             root,
             stages: bound,
             name: format!("{shaders:?}"),
+            key: crate::host::pipeline_key(&format!("{shaders:?}")),
             slots: g.slots(),
             inputs: g.elements(),
             rects: rect_gs.is_some(),
