@@ -297,6 +297,17 @@ pub(crate) fn builder_runs() -> bool {
     let missing = b.pipelines.iter().filter(|p| !make::now(p)).count();
     if missing > 0 {
         b.off = true;
+        // Which stages hold the builder off, and why (a shader that does not
+        // translate, or a pipeline the host refused): what the next fix needs.
+        #[cfg(feature = "diagnostics")]
+        for (stage, why) in b
+            .pipelines
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| make::missing(p).map(|why| (i, why)))
+        {
+            tracing::warn!(stage, why, "ray-tracing structure builder stage without a host pipeline");
+        }
         tracing::warn!(
             missing,
             of = b.pipelines.len(),
